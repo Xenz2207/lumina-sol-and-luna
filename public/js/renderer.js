@@ -450,16 +450,27 @@ export class GameRenderer {
 
   drawPlatform(ctx, p, pal, timeSec) {
     ctx.save();
+    const isOneWay = p.oneWay !== undefined ? Boolean(p.oneWay) : p.h <= 36 && p.y > 10;
     const r = Math.min(10, p.h * 0.4, p.w * 0.2);
 
-    // Rock body
-    ctx.fillStyle = pal.rockFill;
-    ctx.strokeStyle = pal.rockStroke;
-    ctx.lineWidth = 2;
+    // Rock body (floating jump-through ledges use lighter semi-translucent body & glowing bottom trim)
+    ctx.fillStyle = isOneWay ? 'rgba(18, 44, 62, 0.78)' : pal.rockFill;
+    ctx.strokeStyle = isOneWay ? pal.mossGlow : pal.rockStroke;
+    ctx.lineWidth = isOneWay ? 1.5 : 2;
     ctx.beginPath();
     ctx.roundRect(p.x, p.y, p.w, p.h, r);
     ctx.fill();
     ctx.stroke();
+
+    if (isOneWay) {
+      ctx.globalAlpha = 0.25;
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.moveTo(p.x + 12, p.y + p.h - 3);
+      ctx.lineTo(p.x + p.w - 12, p.y + p.h - 3);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
 
     // Glowing organic top cap (unless ceiling pillar starting at y=0)
     if (p.y > 10) {

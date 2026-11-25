@@ -13,6 +13,7 @@ export function createPlayerEntity(role, spawn) {
     coyoteTimer: 0,
     jumpBufferTimer: 0,
     doubleJumpAvailable: true,
+    boostLaunched: false,
     invulnTimer: 0,
     footstepTimer: 0,
     squashX: 1,
@@ -29,17 +30,18 @@ function getSolidRects(level, worldState, timeSec) {
   const solids = [];
 
   for (const p of level.platforms) {
-    solids.push({ x: p.x, y: p.y, w: p.w, h: p.h, surface: p.kind || 'moss', id: p.id });
+    const oneWay = p.oneWay !== undefined ? Boolean(p.oneWay) : p.h <= 36 && p.y > 10;
+    solids.push({ x: p.x, y: p.y, w: p.w, h: p.h, surface: p.kind || 'moss', id: p.id, oneWay });
   }
 
   for (const mp of level.movingPlatforms || []) {
     const pos = evaluateMovingPlatform(mp, timeSec);
-    solids.push({ x: pos.x, y: pos.y, w: pos.w, h: pos.h, surface: 'crystal', id: mp.id, moving: true });
+    solids.push({ x: pos.x, y: pos.y, w: pos.w, h: pos.h, surface: 'crystal', id: mp.id, moving: true, oneWay: true });
   }
 
   for (const b of level.bridges || []) {
     if (worldState.litTotems.has(b.requiresTotemId)) {
-      solids.push({ x: b.x, y: b.y, w: b.w, h: b.h, surface: 'bridge', id: b.id });
+      solids.push({ x: b.x, y: b.y, w: b.w, h: b.h, surface: 'bridge', id: b.id, oneWay: true });
     }
   }
 
@@ -161,6 +163,7 @@ export function stepPlayerPhysics(player, input, level, worldState, partner, dt,
     if (player.coyoteTimer > 0) {
       player.vy = PHYSICS.JUMP_VEL;
       player.grounded = false;
+      player.boostLaunched = false;
       player.coyoteTimer = 0;
       player.jumpBufferTimer = 0;
       player.squashX = 0.78;
@@ -169,6 +172,7 @@ export function stepPlayerPhysics(player, input, level, worldState, partner, dt,
     } else if (player.doubleJumpAvailable) {
       player.vy = PHYSICS.DOUBLE_JUMP_VEL;
       player.doubleJumpAvailable = false;
+      player.boostLaunched = false;
       player.jumpBufferTimer = 0;
       player.squashX = 0.8;
       player.squashY = 1.24;
@@ -176,22 +180,26 @@ export function stepPlayerPhysics(player, input, level, worldState, partner, dt,
     }
   }
 
-  // Variable jump cut
-  if (!input.jumpHeld && player.vy < -180) {
+  // Variable jump cut (do not cut mushroom or partner boost arcs)
+  if (!input.jumpHeld && !player.boostLaunched && player.vy < -180) {
     player.vy *= Math.pow(0.45, dt * 10);
   }
 
   // Gravity
   player.vy = Math.min(PHYSICS.MAX_FALL_SPEED, player.vy + PHYSICS.GRAVITY * dt);
+  if (player.vy >= 0) {
+    player.boostLaunched = false;
+  }
 
   const halfW = PHYSICS.PLAYER_W * 0.5;
   const halfH = PHYSICS.PLAYER_H * 0.5;
 
-  // Move X + resolve collisions
+  // Move X + resolve collisions (skip one-way shelves so jumping up never snags)
   player.x += player.vx * dt;
   player.x = Math.max(halfW, Math.min(level.width - halfW, player.x));
 
   for (const s of solids) {
+    if (s.oneWay) continue;
     if (rectsOverlap(player.x - halfW, player.y - halfH + 4, PHYSICS.PLAYER_W, PHYSICS.PLAYER_H - 8, s.x, s.y, s.w, s.h)) {
       if (player.vx > 0) {
         player.x = s.x - halfW;
@@ -203,9 +211,10 @@ export function stepPlayerPhysics(player, input, level, worldState, partner, dt,
     }
   }
 
-  // Move Y + resolve collisions
+  // Move Y + resolve collisions (one-way platforms allow jumping straight up through)
   const wasGrounded = player.grounded;
   const preLandVy = player.vy;
+  const prevY = player.y;
   player.y += player.vy * dt;
   player.grounded = false;
   player.ridingPlatformId = null;
@@ -213,16 +222,28 @@ export function stepPlayerPhysics(player, input, level, worldState, partner, dt,
 
   for (const s of solids) {
     if (rectsOverlap(player.x - halfW + 2, player.y - halfH, PHYSICS.PLAYER_W - 4, PHYSICS.PLAYER_H, s.x, s.y, s.w, s.h)) {
-      if (player.vy >= 0) {
+      if (s.oneWay) {
+        const prevFeet = prevY + halfH;
+        const tolerance = s.moving ? 16 : 10;
+        if (player.vy >= 0 && prevFeet <= s.y + tolerance) {
+          player.y = s.y - halfH;
+          player.vy = 0;
+          player.grounded = true;
+          player.boostLaunched = false;
+          player.surfaceType = s.surface;
+          events.surfaceType = s.surface;
+          if (s.moving) {
+            player.ridingPlatformId = s.id;
+            player.prevPlatformPos = { x: s.x, y: s.y };
+          }
+        }
+      } else if (player.vy >= 0) {
         player.y = s.y - halfH;
         player.vy = 0;
         player.grounded = true;
+        player.boostLaunched = false;
         player.surfaceType = s.surface;
         events.surfaceType = s.surface;
-        if (s.moving) {
-          player.ridingPlatformId = s.id;
-          player.prevPlatformPos = { x: s.x, y: s.y };
-        }
       } else if (player.vy < 0) {
         player.y = s.y + s.h + halfH;
         player.vy = 0;
@@ -252,10 +273,11 @@ export function stepPlayerPhysics(player, input, level, worldState, partner, dt,
   for (const m of level.mushrooms || []) {
     const dx = player.x - m.x;
     const dy = player.y + halfH - (m.y - 12);
-    if (Math.abs(dx) < m.r + 12 && Math.abs(dy) < 24 && player.vy >= -80) {
+    if (Math.abs(dx) < m.r + 12 && Math.abs(dy) < 24 && player.vy >= -120) {
       player.vy = PHYSICS.BOUNCE_VEL;
       player.grounded = false;
       player.doubleJumpAvailable = true;
+      player.boostLaunched = true;
       player.squashX = 0.72;
       player.squashY = 1.32;
       events.bouncedMushroomId = m.id;
@@ -272,6 +294,7 @@ export function stepPlayerPhysics(player, input, level, worldState, partner, dt,
       player.vy = PHYSICS.PARTNER_BOOST_VEL;
       player.grounded = false;
       player.doubleJumpAvailable = true;
+      player.boostLaunched = true;
       player.squashX = 0.75;
       player.squashY = 1.3;
       events.partnerBoosted = true;

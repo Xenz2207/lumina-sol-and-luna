@@ -104,13 +104,13 @@ describe('Co-op WorldSimulation mechanics', () => {
     assert.equal(world.burnedBriars.has('briar-1'), true);
     assert.ok(events.some((e) => e.type === 'briar_burned' && e.briarId === 'briar-1'));
 
-    // Solar bolt should NOT light Moon Crystal totem-moon-1 (x=1350, y=560)
-    castPower(world, 'sola', 1290, 560, 1, 3);
+    // Solar bolt should NOT light Moon Crystal totem-moon-1 (x=1350, y=658)
+    castPower(world, 'sola', 1290, 658, 1, 3);
     for (let i = 0; i < 12; i++) stepWorld(world, 0.05, (e) => events.push(e));
     assert.equal(world.litTotems.has('totem-moon-1'), false);
 
     // Lunar wave SHOULD light totem-moon-1 and activate bridge-1
-    castPower(world, 'luna', 1290, 560, 1, 4);
+    castPower(world, 'luna', 1290, 658, 1, 4);
     for (let i = 0; i < 12; i++) stepWorld(world, 0.05, (e) => events.push(e));
     assert.equal(world.litTotems.has('totem-moon-1'), true);
     assert.ok(events.some((e) => e.type === 'bridge_activated' && e.bridgeId === 'bridge-1'));
