@@ -1,0 +1,15 @@
+{
+  "name": "lumina-sol-and-luna",
+  "version": "1.0.0",
+  "description": "2-Player Mobile Co-op Bioluminescent Adventure Game (SOLA & LUNA)",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-vercel.js",
+    "start": "node server/index.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "ws": "^8.18.0"
+  }
+}

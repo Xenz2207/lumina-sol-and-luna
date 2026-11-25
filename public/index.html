@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#07131D" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>LUMINA — ตะวันและจันทรา</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Portrait Orientation Helper -->
+  <div id="portrait-banner" class="portrait-banner hidden">
+    <span>หมุนมือถือแนวนอนเพื่อมุมมองผจญภัยที่กว้างขึ้น</span>
+    <button id="btn-dismiss-portrait" class="btn-mini">ซ่อน</button>
+  </div>
+
+  <!-- Title Screen Overlay -->
+  <section id="screen-title" class="overlay-screen">
+    <div class="glass-card title-card">
+      <div class="crest-emblem" aria-hidden="true">
+        <span class="orb-sun"></span>
+        <span class="orb-moon"></span>
+      </div>
+      <h1 class="brand-title">LUMINA</h1>
+      <p class="brand-subtitle">ตะวันและจันทรา การผจญภัยร่วมใจ 2 เครื่อง</p>
+
+      <div class="name-row">
+        <input id="input-player-name" type="text" maxlength="16" placeholder="ชื่อของคุณ (ไม่บังคับ)" autocomplete="off" />
+      </div>
+
+      <div class="action-stack">
+        <button id="btn-create-room" class="btn-primary">สร้างห้องเล่น 2 เครื่อง</button>
+        <button id="btn-toggle-join" class="btn-glass">เข้าห้องด้วยรหัส</button>
+
+        <div id="join-panel" class="join-panel hidden">
+          <input id="input-room-code" type="text" maxlength="4" placeholder="รหัส 4 หลัก" autocapitalize="characters" autocomplete="off" />
+          <button id="btn-join-room" class="btn-accent">เข้าร่วม</button>
+        </div>
+
+        <div class="solo-row">
+          <select id="select-solo-act" class="stage-select" aria-label="เลือกด่านสำหรับโหมดเล่นคนเดียว"></select>
+          <button id="btn-solo-mode" class="btn-ghost">เล่นคนเดียว (AI)</button>
+        </div>
+
+        <button id="btn-open-tutorial" class="btn-tutorial-link">วิธีเล่น / ฝึกก่อนเริ่ม</button>
+      </div>
+
+      <p id="title-error" class="error-text hidden"></p>
+    </div>
+  </section>
+
+  <!-- Pre-Game Tutorial Modal -->
+  <section id="screen-tutorial" class="overlay-screen hidden">
+    <div class="glass-card tutorial-card">
+      <div class="tutorial-top">
+        <span class="label-quiet">คู่มือการผจญภัย LUMINA</span>
+        <button id="btn-tut-skip" class="btn-mini-ghost">ข้าม</button>
+      </div>
+      <div id="tutorial-slide-body" class="tutorial-slide"></div>
+      <div id="tutorial-dots" class="tutorial-dots"></div>
+      <div class="tutorial-footer">
+        <button id="btn-tut-prev" class="btn-glass btn-small">ย้อนกลับ</button>
+        <button id="btn-tut-next" class="btn-primary btn-small">ถัดไป</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lobby Overlay -->
+  <section id="screen-lobby" class="overlay-screen hidden">
+    <div class="glass-card lobby-card">
+      <div class="lobby-header">
+        <div>
+          <span class="label-quiet">รหัสห้อง</span>
+          <div id="lobby-code" class="room-code-display">----</div>
+        </div>
+        <div class="lobby-share">
+          <img id="lobby-qr" class="qr-box" alt="QR Code สำหรับสแกนเข้าร่วมห้อง" />
+          <div class="share-actions">
+            <button id="btn-copy-link" class="btn-glass btn-small">คัดลอกลิงก์ชวนเพื่อน</button>
+            <p id="lobby-url-text" class="url-hint"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="roles-grid">
+        <div id="card-sola" class="role-card role-sola">
+          <div class="role-badge">SOLA</div>
+          <div class="role-title">โซลา · เปลวตะวัน</div>
+          <div class="role-desc">ยิงลำแสงสุริยะ เผาเถาวัลย์เงา และจุดเสาสุริยัน</div>
+          <div id="slot-sola-player" class="slot-status">กำลังรอผู้เล่น...</div>
+        </div>
+
+        <div id="card-luna" class="role-card role-luna">
+          <div class="role-badge">LUNA</div>
+          <div class="role-title">ลูนา · แสงจันทรา</div>
+          <div class="role-desc">ยิงคลื่นจันทรา เสกสะพานแสงจากผลึกสีฟ้า</div>
+          <div id="slot-luna-player" class="slot-status">กำลังรอเพื่อนสแกน QR...</div>
+        </div>
+      </div>
+
+      <div class="lobby-stage-row">
+        <label for="select-lobby-act" class="label-quiet">เลือกด่านเริ่มต้น</label>
+        <select id="select-lobby-act" class="stage-select"></select>
+      </div>
+
+      <div class="lobby-footer">
+        <button id="btn-swap-role" class="btn-glass">สลับตัวละคร</button>
+        <button id="btn-start-game" class="btn-primary">เริ่มการผจญภัย</button>
+        <button id="btn-leave-lobby" class="btn-ghost">ออก</button>
+      </div>
+      <p id="lobby-hint" class="lobby-hint">ให้เพื่อนเปิดกล้องสแกน QR หรือกรอกรหัสห้องด้านบนบน Wi-Fi เดียวกัน</p>
+    </div>
+  </section>
+
+  <!-- In-Game HUD & Touch Controls -->
+  <div id="game-hud" class="game-hud hidden">
+    <header class="hud-top">
+      <div class="hud-group">
+        <div class="hud-pill sola-pill">
+          <span class="dot-sola"></span>
+          <span>SOLA</span>
+          <span id="hud-hp-sola" class="hearts">♥♥♥♥♥</span>
+        </div>
+        <div class="hud-pill luna-pill">
+          <span class="dot-luna"></span>
+          <span>LUNA</span>
+          <span id="hud-hp-luna" class="hearts">♥♥♥♥♥</span>
+        </div>
+        <div class="hud-pill shard-pill">
+          <span class="shard-icon">✦</span>
+          <span id="hud-shards">0 / 12</span>
+        </div>
+      </div>
+
+      <div class="hud-center-info">
+        <span id="hud-act-name" class="act-badge">ป่าหิ่งห้อยกระซิบ</span>
+      </div>
+
+      <div class="hud-group">
+        <button id="btn-solo-switch" class="btn-hud hidden" title="สลับควบคุม">สลับ SOLA ⇄ LUNA</button>
+        <button id="btn-hint" class="btn-hud btn-hint" title="เปิดคำใบ้ด่านนี้ (กด I)">💡 คำใบ้</button>
+        <span id="hud-net-status" class="hud-pill net-pill">เชื่อมต่อแล้ว</span>
+        <button id="btn-mute" class="btn-hud" aria-label="เปิด/ปิดเสียง">🔊</button>
+        <button id="btn-menu" class="btn-hud">เมนู</button>
+      </div>
+    </header>
+
+    <!-- Interactive Stage 1 Tutorial Checklist -->
+    <aside id="tutorial-checklist" class="tutorial-checklist hidden">
+      <div class="checklist-title">ภารกิจฝึกหัดด่าน 1</div>
+      <ul>
+        <li id="chk-move"><span>○</span> เดินและกระโดด 2 จังหวะ</li>
+        <li id="chk-briar"><span>○</span> SOLA เผาเถาวัลย์เงา</li>
+        <li id="chk-bridge"><span>○</span> LUNA เสกสะพานแสง</li>
+        <li id="chk-gate"><span>○</span> จุดเสาคู่เปิดประตูมิติ</li>
+      </ul>
+    </aside>
+
+    <!-- Persistent Stage Hint Card -->
+    <aside id="hint-card" class="hint-card hidden">
+      <div class="hint-card-head">
+        <strong id="hint-stage-title">เป้าหมายด่าน</strong>
+        <span id="hint-counter" class="label-quiet">1/3</span>
+      </div>
+      <p id="hint-objective" class="hint-objective"></p>
+      <p id="hint-text" class="hint-body"></p>
+      <div class="hint-actions">
+        <button id="btn-hint-next" class="btn-glass btn-small">คำใบ้ถัดไป</button>
+        <button id="btn-hint-close" class="btn-mini-ghost">ปิด</button>
+      </div>
+    </aside>
+
+    <!-- Boss HP Bar (Act 3) -->
+    <div id="boss-hud" class="boss-hud hidden">
+      <div class="boss-header">
+        <span id="boss-name">อัมบรา นอคทิส — ผู้พิทักษ์สุริยุปราคา</span>
+        <span id="boss-weakness-badge" class="boss-weakness">แพ้พลังตะวัน</span>
+      </div>
+      <div class="boss-bar-track">
+        <div id="boss-bar-fill" class="boss-bar-fill"></div>
+      </div>
+    </div>
+
+    <!-- Contextual Hint Toast -->
+    <div id="hud-toast" class="hud-toast hidden"></div>
+
+    <!-- Mobile Multi-Touch Controls -->
+    <div id="touch-controls" class="touch-controls">
+      <div id="joy-zone" class="joy-zone">
+        <div class="joy-track">
+          <div id="joy-knob" class="joy-knob"></div>
+        </div>
+      </div>
+
+      <div class="action-pad">
+        <button id="btn-emote" class="touch-btn btn-sub" aria-label="เรียกคู่หู">เรียก</button>
+        <button id="btn-harmony" class="touch-btn btn-harmony" aria-label="ผสานพลัง">ผสาน</button>
+        <button id="btn-power" class="touch-btn btn-power" aria-label="ใช้พลัง">
+          <span id="btn-power-label">สุริยะ</span>
+          <span id="power-cooldown-ring" class="cd-overlay"></span>
+        </button>
+        <button id="btn-jump" class="touch-btn btn-jump" aria-label="กระโดด">กระโดด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Act Transition Curtain -->
+  <div id="act-curtain" class="act-curtain hidden">
+    <h2 id="curtain-title">องก์ที่ 1</h2>
+    <p id="curtain-subtitle"></p>
+  </div>
+
+  <!-- Pause / Quick Menu Overlay -->
+  <section id="screen-pause" class="overlay-screen hidden">
+    <div class="glass-card pause-card">
+      <h2>พักการเดินทาง</h2>
+      <p id="pause-room-info" class="label-quiet"></p>
+
+      <div class="pause-stage-box">
+        <label for="select-pause-act" class="label-quiet">เลือกข้ามไปยังด่าน (1–10)</label>
+        <div class="solo-row">
+          <select id="select-pause-act" class="stage-select"></select>
+          <button id="btn-jump-act" class="btn-accent btn-small">ไปด่านนี้</button>
+        </div>
+      </div>
+
+      <div class="volume-grid">
+        <label>เพลงประกอบ <input id="slider-bgm" type="range" min="0" max="100" value="42" /></label>
+        <label>เสียงเอฟเฟกต์ <input id="slider-sfx" type="range" min="0" max="100" value="90" /></label>
+      </div>
+
+      <div class="action-stack">
+        <button id="btn-resume" class="btn-primary">เล่นต่อ</button>
+        <button id="btn-pause-tutorial" class="btn-glass">ดูวิธีเล่น (Tutorial)</button>
+        <button id="btn-restart-act" class="btn-glass">เริ่มใหม่ตั้งแต่ด่าน 1</button>
+        <button id="btn-exit-home" class="btn-ghost">กลับหน้าหลัก</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Victory Overlay -->
+  <section id="screen-victory" class="overlay-screen hidden">
+    <div class="glass-card victory-card">
+      <div class="crest-emblem" aria-hidden="true">
+        <span class="orb-sun"></span>
+        <span class="orb-moon"></span>
+      </div>
+      <h2 class="brand-title">แสงแห่งมิตรภาพ</h2>
+      <p class="brand-subtitle">ตะวันและจันทราร่วมใจฟื้นคืนแสงสว่างแก่ผืนป่าแล้ว</p>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <span class="label-quiet">ผลึกวิญญาณ</span>
+          <strong id="vic-shards">0</strong>
+        </div>
+        <div class="stat-box">
+          <span class="label-quiet">ประสานพลัง</span>
+          <strong id="vic-teamwork">0</strong>
+        </div>
+        <div class="stat-box">
+          <span class="label-quiet">เวลาที่ใช้</span>
+          <strong id="vic-time">0:00</strong>
+        </div>
+      </div>
+      <div class="action-stack">
+        <button id="btn-play-again" class="btn-primary">ผจญภัยอีกครั้ง</button>
+        <button id="btn-victory-home" class="btn-ghost">กลับหน้าหลัก</button>
+      </div>
+    </div>
+  </section>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

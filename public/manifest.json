@@ -1,0 +1,17 @@
+{
+  "name": "LUMINA: Sol & Luna",
+  "short_name": "LUMINA",
+  "description": "เกมผจญภัย 2 ผู้เล่นคนละเครื่อง ตะวันและจันทราในป่าเรืองแสง",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#07131D",
+  "theme_color": "#07131D",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
