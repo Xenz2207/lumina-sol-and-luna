@@ -829,6 +829,7 @@ function unlockAudioOnce() {
   audio.unlock();
 }
 window.addEventListener('pointerdown', unlockAudioOnce, { once: true });
+window.addEventListener('touchstart', unlockAudioOnce, { once: true });
 window.addEventListener('keydown', unlockAudioOnce, { once: true });
 
 ui.btnCreateRoom.addEventListener('click', async () => {
@@ -1422,6 +1423,9 @@ function frame(nowMs) {
 // =========================================================================
 
 input.attach({
+  canvas: ui.canvas,
+  touchControls: $('touch-controls'),
+  hudEl: ui.gameHud,
   joyZone: ui.joyZone,
   joyKnob: ui.joyKnob,
   btnJump: ui.btnJump,

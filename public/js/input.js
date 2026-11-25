@@ -22,9 +22,14 @@ export class InputManager {
     this.maxJoyRadius = 46;
   }
 
-  attach({ joyZone, joyKnob, btnJump, btnPower, btnHarmony, btnEmote }) {
+  attach({ canvas, touchControls, hudEl, joyZone, joyKnob, btnJump, btnPower, btnHarmony, btnEmote }) {
     this.joyZoneEl = joyZone;
     this.joyKnobEl = joyKnob;
+
+    this.installIosZoomGuard(
+      [canvas, touchControls, joyZone, btnJump, btnPower, btnHarmony, btnEmote],
+      hudEl
+    );
 
     if (joyZone) {
       joyZone.addEventListener('pointerdown', (e) => {
@@ -69,6 +74,51 @@ export class InputManager {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.resetAll();
     });
+  }
+
+  /**
+   * Prevents iOS Safari / Chrome WKWebView pinch-zoom and rapid-tap double-tap zoom
+   * during gameplay while preserving menu/form tap behavior and Pointer Events.
+   */
+  installIosZoomGuard(gameplayEls, hudEl) {
+    const prevent = (e) => e.preventDefault();
+    for (const evt of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) {
+      document.addEventListener(evt, prevent, { passive: false });
+    }
+
+    const blockPinch = (e) => {
+      if (e.touches && e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('touchstart', blockPinch, { passive: false });
+    document.addEventListener('touchmove', blockPinch, { passive: false });
+
+    for (const el of gameplayEls) {
+      if (!el) continue;
+      el.addEventListener(
+        'touchend',
+        (e) => {
+          e.preventDefault();
+        },
+        { passive: false }
+      );
+    }
+
+    if (hudEl) {
+      let lastTouchEnd = 0;
+      hudEl.addEventListener(
+        'touchend',
+        (e) => {
+          const now = Date.now();
+          if (now - lastTouchEnd < 350 && !e.target?.closest?.('input, select, textarea, button')) {
+            e.preventDefault();
+          }
+          lastTouchEnd = now;
+        },
+        { passive: false }
+      );
+    }
   }
 
   updateJoystick(clientX) {
